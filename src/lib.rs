@@ -91,6 +91,79 @@ impl Minesweeper {
         }
     }
 
+    /// Creates a new minesweeper game that generates the board after the first click
+    /// to guarantee a good starting area (no bomb, ideally a zero for expansion)
+    pub fn new_with_first_click(size: usize, bomb_count: usize, first_click: (usize, usize)) -> Self {
+        use rand::Rng;
+        
+        let (first_x, first_y) = first_click;
+        
+        // Validate first click coordinates
+        if first_x >= size || first_y >= size {
+            panic!("First click coordinates out of bounds");
+        }
+        
+        // Create list of all positions
+        let mut all_positions = Vec::new();
+        for x in 0..size {
+            for y in 0..size {
+                all_positions.push((x, y));
+            }
+        }
+        
+        // Remove the first click position and its neighbors from possible bomb locations
+        // This ensures the first click will be a zero (or at least not a bomb with low numbers around)
+        let forbidden_positions = Self::get_area_around(first_x, first_y, size);
+        all_positions.retain(|pos| !forbidden_positions.contains(pos));
+        
+        // If we don't have enough positions left, just exclude the first click position
+        if all_positions.len() < bomb_count {
+            all_positions.clear();
+            for x in 0..size {
+                for y in 0..size {
+                    if x != first_x || y != first_y {
+                        all_positions.push((x, y));
+                    }
+                }
+            }
+        }
+        
+        // Randomly select bomb positions
+        let mut rng = rand::thread_rng();
+        let mut mine_locations = Vec::new();
+        
+        for _ in 0..bomb_count.min(all_positions.len()) {
+            let index = rng.gen_range(0..all_positions.len());
+            mine_locations.push(all_positions.remove(index));
+        }
+        
+        // Create the game with the selected mine locations
+        let mut game = Self::new(size, mine_locations);
+        
+        // Automatically perform the first click
+        game.click_tile(first_x, first_y).expect("First click should always be safe");
+        
+        game
+    }
+    
+    /// Get all positions around a given coordinate (including the coordinate itself)
+    fn get_area_around(x: usize, y: usize, size: usize) -> Vec<(usize, usize)> {
+        let mut positions = Vec::new();
+        
+        for dx in -1..=1i32 {
+            for dy in -1..=1i32 {
+                let nx = x as i32 + dx;
+                let ny = y as i32 + dy;
+                
+                if nx >= 0 && ny >= 0 && (nx as usize) < size && (ny as usize) < size {
+                    positions.push((nx as usize, ny as usize));
+                }
+            }
+        }
+        
+        positions
+    }
+
     fn create_empty_board(size: usize) -> Vec<Vec<Tile>> {
         vec![vec![Tile::new(); size]; size]
     }
@@ -358,5 +431,41 @@ mod tests {
         game.click_tile(1, 1).unwrap();
 
         assert_eq!(*game.get_game_state(), GameState::Won);
+    }
+
+    #[test]
+    fn test_new_with_first_click() {
+        // Test that first click never hits a bomb
+        for _ in 0..10 {
+            let game = Minesweeper::new_with_first_click(10, 15, (5, 5));
+            
+            // First click should be exposed and not be a bomb
+            let first_tile = game.get_tile(5, 5).unwrap();
+            assert!(first_tile.exposed);
+            assert!(!first_tile.is_bomb());
+            
+            // Game should still be in progress (not lost)
+            assert_eq!(*game.get_game_state(), GameState::InProgress);
+            
+            // Should have correct bomb count
+            assert_eq!(game.get_bomb_count(), 15);
+        }
+    }
+
+    #[test]
+    fn test_first_click_creates_opening() {
+        // Test that first click often creates a nice opening (zero tile)
+        let mut zero_count = 0;
+        for _ in 0..20 {
+            let game = Minesweeper::new_with_first_click(10, 10, (5, 5));
+            let first_tile = game.get_tile(5, 5).unwrap();
+            
+            if let Some(0) = first_tile.get_number() {
+                zero_count += 1;
+            }
+        }
+        
+        // Should get zeros fairly often (this is probabilistic, but should usually work)
+        assert!(zero_count > 5, "Should get some zero tiles as first clicks");
     }
 }

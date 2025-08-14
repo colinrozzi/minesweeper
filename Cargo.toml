@@ -10,3 +10,4 @@ name = "minesweeper"
 crate-type = ["lib"]
 
 [dependencies]
+rand = "0.8"
