@@ -184,7 +184,6 @@ impl Minesweeper {
                 }
             }
 
-            // Check all 8 adjacent tiles
             for dx in -1..=1i32 {
                 for dy in -1..=1i32 {
                     if dx == 0 && dy == 0 {
@@ -206,7 +205,6 @@ impl Minesweeper {
                             visited[nx][ny] = true;
                             self.board[nx][ny].exposed = true;
 
-                            // Only add to queue if it's a 0 (to continue flood fill)
                             if let TileValue::Number(0) = self.board[nx][ny].value {
                                 queue.push_back((nx, ny));
                             }
@@ -287,73 +285,6 @@ impl Minesweeper {
 
         tile.flagged = !tile.flagged;
         Ok(())
-    }
-}
-
-fn main() {
-    let mine_locations = vec![(0, 0), (2, 2), (3, 1)];
-    let mut game = Minesweeper::new(4, mine_locations);
-
-    println!("\nGame Setup:");
-    println!("- Board size: {}x{}", game.get_size(), game.get_size());
-    println!("- Total bombs: {}", game.get_bomb_count());
-    println!("- Game state: {:?}", game.get_game_state());
-
-    println!("\n=== Gameplay Sequence ===");
-
-    println!("\n1. Clicking tile (1, 1)...");
-    match game.click_tile(1, 1) {
-        Ok(_) => {
-            println!("   ✓ Success!");
-            println!("   Game state: {:?}", game.get_game_state());
-            println!("   Exposed tiles: {}", game.count_exposed_tiles());
-        }
-        Err(e) => println!("   ✗ Error: {}", e),
-    }
-
-    println!("\n2. Flagging suspected mine at (0, 0)...");
-    match game.toggle_flag(0, 0) {
-        Ok(_) => {
-            println!("   ✓ Flagged!");
-            println!("   Flagged tiles: {}", game.count_flagged_tiles());
-        }
-        Err(e) => println!("   ✗ Error: {}", e),
-    }
-
-    let safe_moves = vec![(1, 0), (0, 1), (1, 2), (2, 1)];
-    for (x, y) in safe_moves {
-        println!("\n3. Trying to click ({}, {})...", x, y);
-        match game.click_tile(x, y) {
-            Ok(_) => {
-                if let Some(tile) = game.get_tile(x, y) {
-                    match tile.get_number() {
-                        Some(n) => println!("   ✓ Revealed number: {}", n),
-                        None => println!("   ✓ Tile revealed"),
-                    }
-                }
-                println!("   Game state: {:?}", game.get_game_state());
-
-                if *game.get_game_state() != GameState::InProgress {
-                    break;
-                }
-            }
-            Err(e) => println!("   ✗ Error: {}", e),
-        }
-    }
-
-    println!("\n=== Final State ===");
-    println!("Game state: {:?}", game.get_game_state());
-    println!(
-        "Exposed tiles: {}/{}",
-        game.count_exposed_tiles(),
-        game.get_size() * game.get_size()
-    );
-    println!("Flagged tiles: {}", game.count_flagged_tiles());
-
-    match game.get_game_state() {
-        GameState::Won => println!("🎉 Congratulations! You won!"),
-        GameState::Lost => println!("💥 Game over! You hit a mine!"),
-        GameState::InProgress => println!("🎮 Game still in progress..."),
     }
 }
 
